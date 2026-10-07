@@ -1204,6 +1204,62 @@
           }
      </style>
 
+     <style>
+          .password-input-wrapper {
+               position: relative;
+          }
+
+          .password-input-wrapper input {
+               padding-right: 48px !important;
+          }
+
+          .password-visibility-toggle {
+               position: absolute;
+               top: 50%;
+               right: 10px;
+               display: inline-flex;
+               align-items: center;
+               justify-content: center;
+               width: 32px;
+               height: 32px;
+               padding: 0;
+               border: 0;
+               background: transparent;
+               color: #605e5c;
+               transform: translateY(-50%);
+               cursor: pointer;
+          }
+
+          .password-visibility-toggle:focus-visible {
+               outline: 2px solid #f96522;
+               outline-offset: 2px;
+          }
+
+          .password-visibility-toggle svg {
+               width: 20px;
+               height: 20px;
+          }
+
+          .password-requirements,
+          .password-validation-message {
+               display: block;
+               margin-top: 6px;
+               text-align: left;
+               font-size: 14px;
+          }
+
+          .password-requirements {
+               color: #605e5c;
+          }
+
+          .password-validation-message {
+               color: rgb(245, 50, 64);
+          }
+
+          .password-validation-message:empty {
+               display: none;
+          }
+     </style>
 </head>
 
 <body>
@@ -1265,6 +1321,129 @@
           let infoParagraph = document.getElementById('info_text');
           let displayNameLabel = document.getElementById('displayName_label');
           let displayNameInput = document.getElementById('displayName');
+          let passwordFieldsInitialized = false;
+
+          function setupPasswordFields() {
+               if (passwordFieldsInitialized) {
+                    return;
+               }
+
+               const passwordInput = document.getElementById('newPassword');
+               const reenterPasswordInput = document.getElementById('reenterPassword');
+               if (!passwordInput || !reenterPasswordInput) {
+                    console.error('Password fields not found after the Details step was shown.');
+                    return;
+               }
+
+               passwordFieldsInitialized = true;
+
+               function addVisibilityToggle(input, label) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'password-input-wrapper';
+                    input.parentNode.insertBefore(wrapper, input);
+                    wrapper.appendChild(input);
+
+                    const toggle = document.createElement('button');
+                    toggle.type = 'button';
+                    toggle.className = 'password-visibility-toggle';
+                    toggle.setAttribute('aria-label', `Show ${label}`);
+                    toggle.setAttribute('title', `Show ${label}`);
+                    const eyeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+                    const eyeOffIcon = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a16.2 16.2 0 0 1-3.1 3.9M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7c1.1 0 2.1-.2 3-.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+                    toggle.setAttribute('aria-pressed', 'false');
+                    toggle.innerHTML = input.type === 'password' ? eyeOffIcon : eyeIcon;
+                    toggle.addEventListener('click', function () {
+                         const isPasswordHidden = input.type === 'password';
+                         input.type = isPasswordHidden ? 'text' : 'password';
+                         toggle.setAttribute('aria-label', `${isPasswordHidden ? 'Hide' : 'Show'} ${label}`);
+                         toggle.setAttribute('title', `${isPasswordHidden ? 'Hide' : 'Show'} ${label}`);
+                         toggle.setAttribute('aria-pressed', String(isPasswordHidden));
+                         toggle.innerHTML = isPasswordHidden ? eyeIcon : eyeOffIcon;
+                    });
+                    wrapper.appendChild(toggle);
+               }
+
+               function addMessage(input, className, id, text) {
+                    const message = document.createElement('div');
+                    message.className = className;
+                    message.id = id;
+                    message.textContent = text;
+                    const fieldContainer = input.parentNode.parentNode;
+                    const nextElement = input.parentNode.nextSibling;
+                    const insertionPoint = nextElement && nextElement.classList.contains('password-requirements')
+                         ? nextElement.nextSibling
+                         : nextElement;
+                    fieldContainer.insertBefore(message, insertionPoint);
+                    input.setAttribute('aria-describedby', [input.getAttribute('aria-describedby'), id].filter(Boolean).join(' '));
+                    return message;
+               }
+
+               addVisibilityToggle(passwordInput, 'password');
+               addVisibilityToggle(reenterPasswordInput, 're-entered password');
+
+               const passwordError = addMessage(passwordInput, 'password-validation-message', 'newPassword_validation_error', '');
+               const reenterPasswordError = addMessage(reenterPasswordInput, 'password-validation-message', 'reenterPassword_validation_error', '');
+               passwordError.setAttribute('role', 'alert');
+               passwordError.setAttribute('aria-live', 'polite');
+               reenterPasswordError.setAttribute('role', 'alert');
+               reenterPasswordError.setAttribute('aria-live', 'polite');
+               function getPasswordIssues(password) {
+                    const issues = [];
+                    if (password.length < 8) issues.push('at least 8 characters');
+                    if (!/[A-Z]/.test(password)) issues.push('an uppercase letter');
+                    if (!/[a-z]/.test(password)) issues.push('a lowercase letter');
+                    if (!/[0-9]/.test(password)) issues.push('a number');
+                    if (!/[^A-Za-z0-9\s]/.test(password)) issues.push('a special character');
+                    return issues;
+               }
+
+               function validateFields(showEmptyErrors) {
+                    const passwordIssues = getPasswordIssues(passwordInput.value);
+                    const isPasswordValid = passwordIssues.length === 0;
+                    passwordError.textContent = isPasswordValid || (!passwordInput.value && !showEmptyErrors)
+                         ? ''
+                         : `Password must include ${passwordIssues.join(', ')}.`;
+                    passwordInput.setAttribute('aria-invalid', String(!isPasswordValid));
+
+                    const hasReenteredPassword = Boolean(reenterPasswordInput.value);
+                    const passwordsMatch = passwordInput.value === reenterPasswordInput.value;
+                    const isConfirmationValid = hasReenteredPassword && passwordsMatch;
+                    reenterPasswordError.textContent = isConfirmationValid || (!hasReenteredPassword && !showEmptyErrors)
+                         ? ''
+                         : hasReenteredPassword
+                              ? 'Passwords do not match.'
+                              : 'Please re-enter your password.';
+                    reenterPasswordInput.setAttribute('aria-invalid', String(!isConfirmationValid));
+
+                    return isPasswordValid && isConfirmationValid;
+               }
+
+               passwordInput.addEventListener('input', function () {
+                    validateFields(false);
+               });
+               reenterPasswordInput.addEventListener('input', function () {
+                    validateFields(false);
+               });
+
+               function preventInvalidSubmission(event) {
+                    if (validateFields(true)) {
+                         return;
+                    }
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    if (getPasswordIssues(passwordInput.value).length) {
+                         passwordInput.focus();
+                    } else {
+                         reenterPasswordInput.focus();
+                    }
+               }
+
+               continueBtn.addEventListener('click', preventInvalidSubmission, true);
+               const form = continueBtn.form || document.querySelector('#api form');
+               if (form) {
+                    form.addEventListener('submit', preventInvalidSubmission, true);
+               }
+          }
 
           let verificationInputObserver = new MutationObserver((mutations) => {
                console.log({mutations, dis: verificationInput.disabled})
@@ -1308,10 +1487,11 @@
                     continueBtn.style.display = "none";
                     infoParagraph.textContent = infoText2;
                } else if (event.detail === steps[2]) {
-                    document.getElementById('newPassword').focus();
                     elementsToUpdate.forEach(function (element) {
                          element.style.display = 'block';
                     });
+                    setupPasswordFields();
+                    document.getElementById('newPassword').focus();
                     continueBtn.style.display = "block";
                     infoParagraph.textContent = infoText3;
                     displayNameInput.placeholder = 'First Name';
