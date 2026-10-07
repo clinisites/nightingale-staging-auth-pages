@@ -1263,6 +1263,8 @@
           );
           let continueBtn = document.getElementById("continue");
           let infoParagraph = document.getElementById('info_text');
+          let displayNameLabel = document.getElementById('displayName_label');
+          let displayNameInput = document.getElementById('displayName');
 
           let verificationInputObserver = new MutationObserver((mutations) => {
                console.log({mutations, dis: verificationInput.disabled})
@@ -1312,6 +1314,8 @@
                     });
                     continueBtn.style.display = "block";
                     infoParagraph.textContent = infoText3;
+                    displayNameInput.placeholder = 'First Name';
+                    displayNameLabel.textContent = 'First Name';
                     verificationInputObserver.disconnect();
                }
           }
